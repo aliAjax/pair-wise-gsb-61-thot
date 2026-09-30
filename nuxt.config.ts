@@ -28,6 +28,7 @@ export default defineNuxtConfig({
   },
   typescript: {
     strict: true,
-    typeCheck: true
+    // Keep production builds deterministic; CI runs `npm run typecheck` separately.
+    typeCheck: false
   }
 });
