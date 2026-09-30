@@ -4,6 +4,7 @@ import type { EvidenceItem, EvidenceStatus } from '~/types/certification';
 const props = defineProps<{
   evidence: EvidenceItem[];
   editable?: boolean;
+  baseline?: string;
 }>();
 
 const emit = defineEmits<{
@@ -17,6 +18,11 @@ const typeLabels: Record<EvidenceItem['type'], string> = {
   exemption: '豁免材料',
   certificate: '证书'
 };
+
+function stale(item: EvidenceItem) {
+  if (!props.baseline) return false;
+  return item.softwareVersion !== props.baseline || (item.reviewedSoftwareVersion ?? item.softwareVersion) !== props.baseline;
+}
 </script>
 
 <template>
@@ -42,8 +48,11 @@ const typeLabels: Record<EvidenceItem['type'], string> = {
           <td class="font-mono text-sm">{{ item.regulationId }}</td>
           <td>
             <p>文件 {{ item.version }}</p>
-            <p class="mt-1 text-xs" :class="item.softwareVersion !== item.softwareVersion ? 'text-red-700' : 'text-slate-500'">
+            <p class="mt-1 text-xs" :class="stale(item) ? 'font-medium text-red-700' : 'text-slate-500'">
               软件 {{ item.softwareVersion }}
+              <span v-if="item.reviewedSoftwareVersion && item.reviewedSoftwareVersion !== item.softwareVersion">
+                （结论基线 {{ item.reviewedSoftwareVersion }}）
+              </span>
             </p>
           </td>
           <td class="max-w-[260px] text-sm">{{ item.configurations.join('、') }}</td>
@@ -54,6 +63,13 @@ const typeLabels: Record<EvidenceItem['type'], string> = {
               <UButton size="xs" color="green" variant="soft" @click="emit('update', item.id, 'accepted')">接受</UButton>
               <UButton size="xs" color="red" variant="soft" @click="emit('update', item.id, 'rejected')">拒绝</UButton>
               <UButton size="xs" color="amber" variant="soft" @click="emit('update', item.id, 'resubmit')">重新抽样</UButton>
+              <UButton
+                v-if="item.status === 'reconfirm'"
+                size="xs"
+                color="purple"
+                variant="soft"
+                @click="emit('update', item.id, 'accepted')"
+              >按当前基线重认</UButton>
             </div>
           </td>
         </tr>

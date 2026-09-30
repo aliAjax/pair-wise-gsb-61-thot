@@ -30,12 +30,20 @@ function submit() {
     error.value = '请选择需要补件的认证项目';
     return;
   }
+  if (current.value.frozenSnapshot) {
+    error.value = '该项目已批准并冻结，不能进行批量补件；如需变更请先重新打开审阅并另起版本。';
+    return;
+  }
   const errors = validateEvidenceUpgrade(current.value, selectedEvidence.value, note.value);
   if (errors.length) {
     error.value = errors.join('；');
     return;
   }
   const count = store.bulkSupplement(current.value.id, selectedEvidence.value, note.value);
+  if (!count) {
+    error.value = '补件未写入：项目可能已冻结。';
+    return;
+  }
   selectedEvidence.value = [];
   note.value = '';
   message.value = `已完成 ${count} 项证据补件，并同步到项目版本基线。`;

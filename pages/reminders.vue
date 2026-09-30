@@ -2,6 +2,7 @@
 import { useCertificationStore } from '~/stores/certification';
 
 const store = useCertificationStore();
+onMounted(() => store.hydrate());
 const today = new Date('2026-09-29');
 
 const reminders = computed(() =>

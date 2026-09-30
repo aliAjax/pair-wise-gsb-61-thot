@@ -5,6 +5,7 @@ const navItems = [
   { to: '/', label: '认证项目' },
   { to: '/regulations', label: '法规项目树' },
   { to: '/supplements', label: '批量补件' },
+  { to: '/reconcile', label: '离线对账' },
   { to: '/reminders', label: '到期提醒' },
   { to: '/audit', label: '审计记录' }
 ];

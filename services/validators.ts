@@ -20,15 +20,28 @@ export function validateSubmission(project: ApprovalProject) {
   const issues: string[] = [];
   const requiredRegulations = project.regulations.filter((item) => item.required);
   const missingEvidence = project.evidence.filter((item) =>
-    ['missing', 'rejected', 'resubmit'].includes(item.status)
+    ['missing', 'rejected', 'resubmit', 'reconfirm'].includes(item.status)
   );
   const versionMismatch = project.evidence.filter(
     (item) => item.softwareVersion !== project.softwareVersion
   );
+  const staleReviews = project.evidence.filter(
+    (item) =>
+      item.status === 'accepted' &&
+      (item.reviewedSoftwareVersion ?? item.softwareVersion) !== project.softwareVersion
+  );
   const coverageIssue = requiredRegulations.find((item) => item.status !== 'complete');
   const expiring = new Date(project.certificateExpiry) <= new Date('2026-12-31');
 
-  if (missingEvidence.length) issues.push(`${missingEvidence.length} 项证据缺失、被拒或待补件`);
+  if (missingEvidence.length) {
+    const reconfirmCount = project.evidence.filter((item) => item.status === 'reconfirm').length;
+    issues.push(
+      reconfirmCount
+        ? `${missingEvidence.length} 项证据缺失、被拒、待重交或待按新基线重新确认（其中 ${reconfirmCount} 项基线已变）`
+        : `${missingEvidence.length} 项证据缺失、被拒或待补件`
+    );
+  }
+  if (staleReviews.length) issues.push(`${staleReviews.length} 项已接受证据的审阅基线落后于当前软件基线，须重新确认`);
   if (versionMismatch.length) issues.push(`${versionMismatch.length} 项证据软件版本与项目基线不一致`);
   if (coverageIssue) issues.push(`法规项 ${coverageIssue.code} 尚未完整覆盖配置`);
   if (expiring) issues.push('证书有效期不足 90 天，需先确认续证安排');

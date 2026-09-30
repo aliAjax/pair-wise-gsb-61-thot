@@ -5,6 +5,7 @@ import { useCertificationStore } from '~/stores/certification';
 
 const route = useRoute();
 const store = useCertificationStore();
+onMounted(() => store.hydrate());
 const id = String(route.params.id);
 const project = computed(() => store.projectById(id));
 const activeTab = ref(0);
@@ -72,9 +73,24 @@ const transitionOptions = computed(() => {
 
 const blockingIssues = computed(() => (project.value ? validateSubmission(project.value) : []));
 
+const frozen = computed(() => !!project.value?.frozenSnapshot);
+const frozenHistory = computed(() => project.value?.frozenHistory ?? []);
+const staleEvidence = computed(() =>
+  project.value
+    ? project.value.evidence.filter(
+        (item) => (item.reviewedSoftwareVersion ?? item.softwareVersion) !== project.value!.softwareVersion
+      )
+    : []
+);
+const reconfirmEvidence = computed(() => project.value?.evidence.filter((item) => item.status === 'reconfirm') ?? []);
+
 function saveEditor() {
   message.value = '';
   error.value = '';
+  if (frozen.value) {
+    error.value = '项目已批准冻结，基线与证据快照不能改写。';
+    return;
+  }
   const errors = validateProjectInput(editor);
   if (Object.keys(errors).length) {
     error.value = Object.values(errors)[0] ?? '项目资料校验失败';
@@ -108,12 +124,22 @@ function transition() {
 
 function updateEvidence(evidenceId: string, status: EvidenceStatus) {
   if (!project.value) return;
-  store.updateEvidence(id, evidenceId, status, `审阅人将证据标记为${status}`);
-  message.value = '证据审阅状态已更新。';
+  if (frozen.value) {
+    error.value = '该证据属于已批准冻结快照，不能改写。';
+    return;
+  }
+  store.updateEvidence(id, evidenceId, status, `审阅人将证据标记为${status}（基线 SW ${project.value.softwareVersion}）`);
+  message.value = status === 'accepted' && project.value.evidence.find((item) => item.id === evidenceId)?.status === 'reconfirm'
+    ? '已按当前软件基线重新确认。'
+    : '证据审阅状态已更新。';
 }
 
 function bulkSupplement() {
   if (!project.value) return;
+  if (frozen.value) {
+    error.value = '项目已批准冻结，不能进行批量补件。';
+    return;
+  }
   const errors = validateEvidenceUpgrade(project.value, selectedEvidence.value, supplementNote.value);
   if (errors.length) {
     error.value = errors.join('；');
@@ -156,6 +182,37 @@ function bulkSupplement() {
 
     <div v-if="message" class="mb-4 border border-green-200 bg-green-50 p-3 text-sm text-green-900">{{ message }}</div>
     <div v-if="error" class="mb-4 border border-red-200 bg-red-50 p-3 text-sm text-red-900">{{ error }}</div>
+
+    <div v-if="frozen" class="mb-5 border-2 border-green-300 bg-green-50 p-4">
+      <p class="text-sm font-semibold text-green-900">已批准冻结快照</p>
+      <p class="mt-1 text-sm text-green-800">
+        项目已于基线 {{ project.frozenSnapshot?.maintenanceVersion }} / SW {{ project.frozenSnapshot?.softwareVersion }}
+        冻结（{{ project.frozenSnapshot?.frozenBy }}，{{ project.frozenSnapshot?.frozenAt?.slice(0, 10) }}）。
+        证据、版本与基线快照不可改写；离线补件只能在重新打开审阅后另起版本处理。
+      </p>
+      <p class="mt-1 font-mono text-xs text-green-700">快照校验值：{{ project.frozenSnapshot?.checksum }}</p>
+    </div>
+
+    <div v-if="frozenHistory.length && !frozen" class="mb-5 border border-slate-300 bg-slate-50 p-4">
+      <p class="text-sm font-semibold text-slate-800">已归档的批准冻结快照（{{ frozenHistory.length }} 份，不可改写）</p>
+      <ul class="mt-2 space-y-1 text-xs text-slate-600">
+        <li v-for="snapshot in frozenHistory" :key="snapshot.checksum">
+          {{ snapshot.maintenanceVersion }} / SW {{ snapshot.softwareVersion }} · {{ snapshot.frozenBy }} ·
+          {{ snapshot.frozenAt.slice(0, 10) }} · 校验值 <span class="font-mono">{{ snapshot.checksum }}</span>
+        </li>
+      </ul>
+      <p class="mt-1 text-xs text-slate-500">审阅已重新打开，当前周期可继续补件；归档快照永久保留。</p>
+    </div>
+
+    <div v-if="reconfirmEvidence.length" class="mb-5 border border-purple-300 bg-purple-50 p-4">
+      <p class="text-sm font-semibold text-purple-950">软件基线变更，审阅结论失效</p>
+      <ul class="mt-2 list-inside list-disc space-y-1 text-sm text-purple-900">
+        <li v-for="item in reconfirmEvidence" :key="item.id">
+          {{ item.name }}：原结论基于 SW {{ item.reviewedSoftwareVersion }}，当前基线 SW {{ project.softwareVersion }}，请按当前基线重新确认
+        </li>
+      </ul>
+    </div>
+
     <div v-if="blockingIssues.length" class="mb-5 border border-amber-200 bg-amber-50 p-4">
       <p class="text-sm font-semibold text-amber-950">批准前阻断项</p>
       <ul class="mt-2 list-inside list-disc space-y-1 text-sm text-amber-900">
@@ -172,6 +229,7 @@ function bulkSupplement() {
           </div>
         </div>
         <form class="grid gap-4 md:grid-cols-2 xl:grid-cols-3" @submit.prevent="saveEditor">
+          <fieldset :disabled="frozen" class="contents">
           <UFormGroup label="项目名称"><UInput v-model="editor.name" /></UFormGroup>
           <UFormGroup label="车型代码"><UInput v-model="editor.modelCode" /></UFormGroup>
           <UFormGroup label="配置"><UInput v-model="editor.configuration" /></UFormGroup>
@@ -182,8 +240,10 @@ function bulkSupplement() {
           <UFormGroup label="认证机构"><UInput v-model="editor.agency" /></UFormGroup>
           <UFormGroup label="变更原因"><UInput v-model="editReason" placeholder="说明变更和影响范围" /></UFormGroup>
           <div class="md:col-span-2 xl:col-span-3">
-            <UButton type="submit" color="primary">保存并生成版本</UButton>
+            <UButton type="submit" color="primary" :disabled="frozen">保存并生成版本</UButton>
+            <span v-if="frozen" class="ml-3 text-xs text-green-700">已冻结，字段只读</span>
           </div>
+          </fieldset>
         </form>
       </div>
 
@@ -209,7 +269,12 @@ function bulkSupplement() {
         <h2 class="font-semibold">证据文件审阅</h2>
         <p class="mt-1 text-xs text-slate-500">逐项接受、拒绝或要求重新抽样。</p>
       </div>
-      <EvidenceTable :evidence="project.evidence" editable @update="updateEvidence" />
+      <EvidenceTable
+        :evidence="project.evidence"
+        :baseline="project.softwareVersion"
+        :editable="!frozen"
+        @update="updateEvidence"
+      />
     </section>
 
     <section v-else-if="activeTab === 1">
@@ -245,7 +310,10 @@ function bulkSupplement() {
       <div class="border border-slate-200 bg-white p-5">
         <h2 class="font-semibold">批量补件</h2>
         <p class="mt-1 text-xs text-slate-500">将缺失、被拒或待重交证据更新到当前软件基线。</p>
-        <form class="mt-4 space-y-4" @submit.prevent="bulkSupplement">
+        <div v-if="frozen" class="mt-4 border border-green-200 bg-green-50 p-3 text-xs text-green-800">
+          项目已批准冻结，不能进行批量补件。离线补件合并请使用「离线对账」工作区，且须先重新打开审阅。
+        </div>
+        <form v-else class="mt-4 space-y-4" @submit.prevent="bulkSupplement">
           <label
             v-for="item in project.evidence.filter((evidence) => ['rejected', 'resubmit', 'missing'].includes(evidence.status))"
             :key="item.id"

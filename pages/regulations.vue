@@ -14,6 +14,8 @@ const visible = computed(() =>
 );
 const selectedProject = computed(() => store.projectById(selectedProjectId.value));
 const projectOptions = computed(() => store.projects.map((project) => ({ label: `${project.id} · ${project.name}`, value: project.id })));
+
+onMounted(() => store.hydrate());
 </script>
 
 <template>
