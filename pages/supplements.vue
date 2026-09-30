@@ -11,16 +11,17 @@ const error = ref('');
 
 const projectOptions = computed(() =>
   store.projects
-    .filter((project) => project.evidence.some((evidence) => ['rejected', 'resubmit', 'missing'].includes(evidence.status)))
+    .filter((project) => project.evidence.some((evidence) => ['rejected', 'resubmit', 'missing', 'stale'].includes(evidence.status)))
     .map((project) => ({
-      label: `${project.id} · ${project.name}`,
+      label: `${project.id} · ${project.name}${project.status === 'approved' ? '（已批准冻结）' : ''}`,
       value: project.id
     }))
 );
 
 const current = computed(() => store.projects.find((project) => project.id === selectedProjectId.value));
+const frozen = computed(() => current.value?.status === 'approved');
 const pendingEvidence = computed(
-  () => current.value?.evidence.filter((item) => ['rejected', 'resubmit', 'missing'].includes(item.status)) ?? []
+  () => current.value?.evidence.filter((item) => ['rejected', 'resubmit', 'missing', 'stale'].includes(item.status)) ?? []
 );
 
 function submit() {
@@ -30,15 +31,23 @@ function submit() {
     error.value = '请选择需要补件的认证项目';
     return;
   }
+  if (frozen.value) {
+    error.value = '该项目已批准，冻结快照不可改写，不能再提交补件。';
+    return;
+  }
   const errors = validateEvidenceUpgrade(current.value, selectedEvidence.value, note.value);
   if (errors.length) {
     error.value = errors.join('；');
     return;
   }
-  const count = store.bulkSupplement(current.value.id, selectedEvidence.value, note.value);
-  selectedEvidence.value = [];
-  note.value = '';
-  message.value = `已完成 ${count} 项证据补件，并同步到项目版本基线。`;
+  try {
+    const count = store.bulkSupplement(current.value.id, selectedEvidence.value, note.value);
+    selectedEvidence.value = [];
+    note.value = '';
+    message.value = `已完成 ${count} 项证据补件，并同步到项目版本基线，法规覆盖已重算。`;
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : '批量补件失败';
+  }
 }
 
 onMounted(() => {
@@ -62,6 +71,9 @@ onMounted(() => {
         <USelect v-model="selectedProjectId" :options="projectOptions" />
       </UFormGroup>
       <div v-if="current" class="mt-5 space-y-3 text-sm">
+        <div v-if="frozen" class="border border-green-300 bg-green-50 p-3 text-xs text-green-900">
+          该项目已批准冻结，补件入口已停用。
+        </div>
         <div>
           <p class="text-slate-500">车型配置</p>
           <p class="mt-1 font-medium">{{ current.modelCode }} · {{ current.configuration }}</p>
@@ -83,6 +95,7 @@ onMounted(() => {
         <p class="mt-1 text-xs text-slate-500">提交后证据状态变为已提交，软件版本自动更新为项目基线。</p>
       </div>
       <form class="p-4" @submit.prevent="submit">
+        <fieldset :disabled="frozen" class="contents">
         <div class="space-y-3">
           <label v-for="item in pendingEvidence" :key="item.id" class="flex gap-3 border border-slate-200 p-4">
             <input v-model="selectedEvidence" type="checkbox" :value="item.id" class="mt-1" />
@@ -105,7 +118,8 @@ onMounted(() => {
             <UTextarea v-model="note" :rows="4" placeholder="填写新增测试、说明文件、版本核对和配置覆盖结论" />
           </UFormGroup>
         </div>
-        <UButton type="submit" color="primary" class="mt-4">提交批量补件</UButton>
+        <UButton type="submit" color="primary" class="mt-4" :disabled="frozen">提交批量补件</UButton>
+        </fieldset>
       </form>
     </section>
   </div>

@@ -8,6 +8,7 @@
     "build": "nuxt build",
     "preview": "nuxt preview --host 0.0.0.0 --port 18461",
     "typecheck": "nuxt typecheck",
+    "verify": "node scripts/run-verify.mjs",
     "postinstall": "nuxt prepare"
   },
   "dependencies": {

@@ -34,6 +34,8 @@ const reminders = computed(() =>
     }))
     .sort((a, b) => a.days - b.days)
 );
+
+onMounted(() => store.hydrate());
 </script>
 
 <template>

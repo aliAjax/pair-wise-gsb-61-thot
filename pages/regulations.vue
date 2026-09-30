@@ -7,13 +7,16 @@ const selectedCategory = ref('全部');
 const selectedProjectId = ref('TA-2026-118');
 
 const categories = computed(() => ['全部', ...Array.from(new Set(regulationCatalog.map((item) => item.category)))]);
-const visible = computed(() =>
-  selectedCategory.value === '全部'
-    ? regulationCatalog
-    : regulationCatalog.filter((item) => item.category === selectedCategory.value)
-);
 const selectedProject = computed(() => store.projectById(selectedProjectId.value));
 const projectOptions = computed(() => store.projects.map((project) => ({ label: `${project.id} · ${project.name}`, value: project.id })));
+const visible = computed(() => {
+  const regulations = selectedProject.value?.regulations ?? regulationCatalog;
+  return selectedCategory.value === '全部'
+    ? regulations
+    : regulations.filter((item) => item.category === selectedCategory.value);
+});
+
+onMounted(() => store.hydrate());
 </script>
 
 <template>

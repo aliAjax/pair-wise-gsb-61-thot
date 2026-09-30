@@ -1,5 +1,5 @@
 import { ofetch } from 'ofetch';
-import type { ApprovalProject, ProjectFilters } from '~/types/certification';
+import type { ApprovalProject, ProjectFilters, SupplementPackage } from '~/types/certification';
 import { mockFetch } from './mock-fetch';
 
 const client = ofetch.create({
@@ -25,9 +25,15 @@ function matches(project: ApprovalProject, filters: ProjectFilters) {
     (filters.risk === 'missing' &&
       project.regulations.some((item) => item.status === 'missing' || item.status === 'conflict')) ||
     (filters.risk === 'version_conflict' &&
-      project.evidence.some((item) => item.softwareVersion !== project.softwareVersion));
+      project.evidence.some((item) => item.softwareVersion !== project.softwareVersion || item.status === 'stale'));
 
   return matchesQuery && matchesStatus && matchesAgency && matchesRisk;
+}
+
+export interface ImportUploadResult {
+  accepted: boolean;
+  packageId: string;
+  duplicated?: boolean;
 }
 
 export const certificationApi = {
@@ -38,5 +44,27 @@ export const certificationApi = {
 
   async getProject(id: string) {
     return client<ApprovalProject>(`/projects/${encodeURIComponent(id)}`);
+  },
+
+  /** 上传离线补件包（传输层可能失败，调用方使用同一补件包立即重试） */
+  async uploadSupplementPackage(projectId: string, pkg: SupplementPackage) {
+    return client<ImportUploadResult>(`/projects/${encodeURIComponent(projectId)}/supplement-imports`, {
+      method: 'POST',
+      body: {
+        packageId: pkg.packageId,
+        failFirstAttempts: pkg.failFirstAttempts ?? 0
+      }
+    });
+  },
+
+  /** 确认写入；failRemaining > 0 时模拟在写入若干行后断连 */
+  async confirmImportSession(sessionId: string, failRemaining = 0) {
+    return client<{ committed: boolean; sessionId: string }>(
+      `/import-sessions/${encodeURIComponent(sessionId)}/confirm`,
+      {
+        method: 'POST',
+        body: { failRemaining }
+      }
+    );
   }
 };

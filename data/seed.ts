@@ -1,4 +1,4 @@
-import type { ApprovalProject, RegulationItem } from '~/types/certification';
+import type { ApprovalProject, FrozenSnapshot, RegulationItem } from '~/types/certification';
 
 export const regulationCatalog: RegulationItem[] = [
   {
@@ -83,6 +83,21 @@ export const regulationCatalog: RegulationItem[] = [
   }
 ];
 
+/** 每个项目持有独立的法规项副本，覆盖重算不会互相污染 */
+function pickRegulations(ids?: string[]) {
+  const list = ids ? regulationCatalog.filter((item) => ids.includes(item.id)) : regulationCatalog;
+  return structuredClone(list);
+}
+
+const frozen092: FrozenSnapshot = {
+  frozenAt: '2026-08-30T09:20:00.000Z',
+  maintenanceVersion: 'MY26.0',
+  softwareVersion: '3.2.4',
+  configuration: '高顶货运版',
+  regulations: [],
+  evidence: []
+};
+
 export const seedProjects: ApprovalProject[] = [
   {
     id: 'TA-2026-118',
@@ -100,7 +115,7 @@ export const seedProjects: ApprovalProject[] = [
     submittedAt: '2026-09-18',
     updatedAt: '2026-09-28T10:45:00.000Z',
     certificateExpiry: '2026-12-16',
-    regulations: regulationCatalog,
+    regulations: pickRegulations(),
     evidence: [
       {
         id: 'EV-118-01',
@@ -113,7 +128,10 @@ export const seedProjects: ApprovalProject[] = [
         configurations: ['长续航四驱版', '标准续航后驱版'],
         status: 'accepted',
         note: '试验条件与量产软件基线一致。',
-        updatedAt: '2026-09-20T03:00:00.000Z'
+        updatedAt: '2026-09-20T03:00:00.000Z',
+        reviewDecision: 'accepted',
+        reviewedBaseline: 'MY27.1 / SW 8.4.1',
+        reviewedAt: '2026-09-20T03:05:00.000Z'
       },
       {
         id: 'EV-118-02',
@@ -126,7 +144,9 @@ export const seedProjects: ApprovalProject[] = [
         configurations: ['长续航四驱版'],
         status: 'rejected',
         note: '报告软件版本落后于当前整车基线。',
-        updatedAt: '2026-09-25T06:30:00.000Z'
+        updatedAt: '2026-09-25T06:30:00.000Z',
+        reviewedBaseline: 'MY27.1 / SW 8.4.1',
+        reviewedAt: '2026-09-25T06:35:00.000Z'
       },
       {
         id: 'EV-118-03',
@@ -152,7 +172,10 @@ export const seedProjects: ApprovalProject[] = [
         configurations: ['长续航四驱版', '标准续航后驱版'],
         status: 'accepted',
         note: '覆盖全部量产电池配置。',
-        updatedAt: '2026-09-19T08:00:00.000Z'
+        updatedAt: '2026-09-19T08:00:00.000Z',
+        reviewDecision: 'accepted',
+        reviewedBaseline: 'MY27.1 / SW 8.4.1',
+        reviewedAt: '2026-09-19T08:10:00.000Z'
       }
     ],
     versions: [
@@ -190,7 +213,8 @@ export const seedProjects: ApprovalProject[] = [
         detail: '软件基线更新为 8.4.1，需重新确认受影响法规项。',
         createdAt: '2026-09-27T04:10:00.000Z'
       }
-    ]
+    ],
+    conflicts: []
   },
   {
     id: 'TA-2026-109',
@@ -208,7 +232,7 @@ export const seedProjects: ApprovalProject[] = [
     submittedAt: '2026-09-05',
     updatedAt: '2026-09-26T02:15:00.000Z',
     certificateExpiry: '2026-11-20',
-    regulations: regulationCatalog.slice(0, 6),
+    regulations: pickRegulations(['REG-BRAKE', 'REG-LIGHT', 'REG-EMC', 'REG-SOFTWARE', 'REG-WLTP', 'REG-BATTERY']),
     evidence: [
       {
         id: 'EV-109-01',
@@ -221,7 +245,10 @@ export const seedProjects: ApprovalProject[] = [
         configurations: ['七座旗舰版'],
         status: 'accepted',
         note: '实验室报告与申报配置一致。',
-        updatedAt: '2026-09-10T03:00:00.000Z'
+        updatedAt: '2026-09-10T03:00:00.000Z',
+        reviewDecision: 'accepted',
+        reviewedBaseline: 'MY26.2 / SW 5.7.0',
+        reviewedAt: '2026-09-10T03:10:00.000Z'
       },
       {
         id: 'EV-109-02',
@@ -256,7 +283,8 @@ export const seedProjects: ApprovalProject[] = [
         detail: '能耗证据软件版本需更新后重新抽样测试。',
         createdAt: '2026-09-26T02:15:00.000Z'
       }
-    ]
+    ],
+    conflicts: []
   },
   {
     id: 'TA-2026-092',
@@ -274,7 +302,7 @@ export const seedProjects: ApprovalProject[] = [
     submittedAt: '2026-07-12',
     updatedAt: '2026-08-30T09:20:00.000Z',
     certificateExpiry: '2027-08-29',
-    regulations: regulationCatalog.slice(0, 5),
+    regulations: pickRegulations(['REG-BRAKE', 'REG-LIGHT', 'REG-EMC', 'REG-SOFTWARE', 'REG-WLTP']),
     evidence: [
       {
         id: 'EV-092-01',
@@ -288,7 +316,10 @@ export const seedProjects: ApprovalProject[] = [
         status: 'accepted',
         expiryDate: '2027-08-29',
         note: '已纳入正式批准版本。',
-        updatedAt: '2026-08-30T09:20:00.000Z'
+        updatedAt: '2026-08-30T09:20:00.000Z',
+        reviewDecision: 'accepted',
+        reviewedBaseline: 'MY26.0 / SW 3.2.4',
+        reviewedAt: '2026-08-30T09:20:00.000Z'
       }
     ],
     versions: [
@@ -310,7 +341,13 @@ export const seedProjects: ApprovalProject[] = [
         detail: '全部适用范围证据通过审阅，提交包版本锁定。',
         createdAt: '2026-08-30T09:20:00.000Z'
       }
-    ]
+    ],
+    conflicts: [],
+    frozenSnapshot: {
+      ...frozen092,
+      regulations: pickRegulations(['REG-BRAKE', 'REG-LIGHT', 'REG-EMC', 'REG-SOFTWARE', 'REG-WLTP']),
+      evidence: []
+    }
   },
   {
     id: 'TA-2026-120',
@@ -327,7 +364,7 @@ export const seedProjects: ApprovalProject[] = [
     agency: '华东认证中心',
     updatedAt: '2026-09-27T12:30:00.000Z',
     certificateExpiry: '2026-10-24',
-    regulations: regulationCatalog.filter((item) => ['REG-BRAKE', 'REG-EMC', 'REG-BATTERY'].includes(item.id)),
+    regulations: pickRegulations(['REG-BRAKE', 'REG-EMC', 'REG-BATTERY']),
     evidence: [
       {
         id: 'EV-120-01',
@@ -362,6 +399,11 @@ export const seedProjects: ApprovalProject[] = [
         detail: '创建认证证据包草稿。',
         createdAt: '2026-09-27T12:30:00.000Z'
       }
-    ]
+    ],
+    conflicts: []
   }
 ];
+
+// 冻结证据与当时项目证据保持一致（独立副本，后续任何变更都触碰不到快照）
+const frozenProject = seedProjects.find((project) => project.id === 'TA-2026-092')!;
+frozenProject.frozenSnapshot!.evidence = structuredClone(frozenProject.evidence);

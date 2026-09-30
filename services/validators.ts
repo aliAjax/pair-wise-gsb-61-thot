@@ -22,13 +22,17 @@ export function validateSubmission(project: ApprovalProject) {
   const missingEvidence = project.evidence.filter((item) =>
     ['missing', 'rejected', 'resubmit'].includes(item.status)
   );
+  const staleEvidence = project.evidence.filter((item) => item.status === 'stale');
+  const unresolvedConflicts = project.conflicts.filter((item) => !item.resolved);
   const versionMismatch = project.evidence.filter(
-    (item) => item.softwareVersion !== project.softwareVersion
+    (item) => item.status !== 'stale' && item.softwareVersion !== project.softwareVersion
   );
   const coverageIssue = requiredRegulations.find((item) => item.status !== 'complete');
   const expiring = new Date(project.certificateExpiry) <= new Date('2026-12-31');
 
   if (missingEvidence.length) issues.push(`${missingEvidence.length} 项证据缺失、被拒或待补件`);
+  if (staleEvidence.length) issues.push(`${staleEvidence.length} 项证据因软件基线变更失效，尚未在当前基线下重新确认`);
+  if (unresolvedConflicts.length) issues.push(`${unresolvedConflicts.length} 条审阅分歧/基线漂移冲突未处理`);
   if (versionMismatch.length) issues.push(`${versionMismatch.length} 项证据软件版本与项目基线不一致`);
   if (coverageIssue) issues.push(`法规项 ${coverageIssue.code} 尚未完整覆盖配置`);
   if (expiring) issues.push('证书有效期不足 90 天，需先确认续证安排');

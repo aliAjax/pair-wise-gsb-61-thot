@@ -14,10 +14,11 @@ const labels: Record<ProjectStatus | EvidenceStatus, string> = {
   rejected: '已拒绝',
   missing: '缺失',
   accepted: '已接受',
-  resubmit: '需重交'
+  resubmit: '需重交',
+  stale: '基线变更·待重认'
 };
 
-const colors: Record<ProjectStatus | EvidenceStatus, 'gray' | 'blue' | 'amber' | 'green' | 'red'> = {
+const colors: Record<ProjectStatus | EvidenceStatus, 'gray' | 'blue' | 'amber' | 'green' | 'red' | 'orange'> = {
   draft: 'gray',
   submitted: 'blue',
   under_review: 'blue',
@@ -26,7 +27,8 @@ const colors: Record<ProjectStatus | EvidenceStatus, 'gray' | 'blue' | 'amber' |
   rejected: 'red',
   missing: 'gray',
   accepted: 'green',
-  resubmit: 'amber'
+  resubmit: 'amber',
+  stale: 'orange'
 };
 </script>
 
